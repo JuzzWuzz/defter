@@ -50,11 +50,11 @@ void main()
 	// Draw in the clicked position
 	vec2 dist 		= click_pos - frag_TexCoord;
 	float scale_sq 	= scales.y * scales.y;
-	if (dot(dist, dist) < .25 * scale_sq)
+	/*if (dot(dist, dist) < .25 * scale_sq)
 	{
 		frag_Color = vec4(1.0, 0.0, 0.0, 1.0);
 		return;
-	}
+	}*/
 
 	// Variables
 	vec3 normal, lightDir, viewVec, reflec;

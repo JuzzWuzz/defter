@@ -77,6 +77,10 @@ DefTer::DefTer(AppConfig& conf) : reGL3App(conf)
 	m_pShockwave		  = NULL;
 	m_elevationData		  = NULL;
 	m_elevationDataBuffer = NULL;
+
+	// Init the elevation data mutex
+	m_elevationDataMutex = SDL_CreateMutex();
+	m_waitSem			 = SDL_CreateSemaphore(0);
 }
 
 //--------------------------------------------------------
@@ -198,8 +202,8 @@ DefTer::InitGL()
 	m_lastPosition  = m_cam_translate;
 
 	// Set the initial stamp mode and clicked state
-	m_stampSIRM		= vector4(20.0f, 0.2f, 0.0f, 0.0f);
-	m_isHDStamp	= false;
+	m_stampSIRM		= vector4(5.0f, 0.1f, 0.0f, 0.0f);
+	m_isHDStamp		= false;
 	m_clicked		= false;
 	m_clickPos		= vector2(0.0f);
 	m_clickPosPrev	= vector2(0.0f);
@@ -222,7 +226,8 @@ DefTer::InitGL()
 	printf("Initialising shader manager...\t");
 	m_shManager		 = new ShaderManager();
 	error			 = !m_shManager->AddShader("shaders/simple.vert","shaders/simple.geom","shaders/simple.frag", &m_shmSimple);
-	error			&= !m_shManager->AddShader("shaders/parallax.vert","shaders/parallax.geom","shaders/parallax.frag", &m_shmParallax);
+	error			&= !m_shManager->AddShader("shaders/tess.vert","shaders/tess.geom","shaders/tess.frag", &m_shmParallax);
+	//error			&= !m_shManager->AddShader("shaders/parallax.vert","shaders/parallax.geom","shaders/parallax.frag", &m_shmParallax);
 	error			&= !m_shManager->AddShader("shaders/tess.vert","shaders/tess.geom","shaders/tess.frag", &m_shmGeomTess);
 	m_hdShaderIndex	 = m_shmSimple;
 
@@ -335,10 +340,6 @@ DefTer::InitGL()
 bool
 DefTer::Init()
 {
-	// Init the elevation data mutex
-	m_elevationDataMutex = SDL_CreateMutex();
-	m_waitSem			 = SDL_CreateSemaphore(0);
-
 	// Load heightmap
 	printf("Loading coarsemap...\t\t");
 	if (!LoadCoarseMap(COARSEMAP_FILENAME))
@@ -842,44 +843,50 @@ DefTer::ProcessInput(float dt)
 	}
 
 	// Take screenshot
-	static int lastScreenshot = 1;
-	if (m_input.WasKeyPressed(SDLK_F12) && m_config.demo == RE_DEMO_PLAY)
+	static int lastScreenshot = 0;
+	if (m_input.WasKeyPressed(SDLK_F12) || m_config.demo == RE_DEMO_PLAY)
 	{
-		char  filename[256];
-		int   currentViewport[4];
-		glGetIntegerv(GL_VIEWPORT, currentViewport);
-		glViewport(0, 0, SCREENSHOT_W, SCREENSHOT_H);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_screenshotFBO);
-		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-				m_screenshotTex, 0);
-		glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,
-				m_screenshotDepth);
-		glDrawBuffer(GL_COLOR_ATTACHMENT0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		lastScreenshot++;
 
-		matrix4 temp = m_proj_mat;
-		m_proj_mat = m_screenshotProj;
+		// Allow for skipping to certain frames
+		if (!m_config.demo == RE_DEMO_PLAY || (lastScreenshot >= 500 && lastScreenshot < 1300))
+		{
+			char  filename[256];
+			int   currentViewport[4];
+			glGetIntegerv(GL_VIEWPORT, currentViewport);
+			glViewport(0, 0, SCREENSHOT_W, SCREENSHOT_H);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_screenshotFBO);
+			glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+					m_screenshotTex, 0);
+			glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,
+					m_screenshotDepth);
+			glDrawBuffer(GL_COLOR_ATTACHMENT0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		m_shManager->UpdateUniMat4fv("projection", m_proj_mat.m);
-		Render(.0f);
-		m_proj_mat = temp;
-		m_shManager->UpdateUniMat4fv("projection", m_proj_mat.m);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+			matrix4 temp = m_proj_mat;
+			m_proj_mat = m_screenshotProj;
+
+			m_shManager->UpdateUniMat4fv("projection", m_proj_mat.m);
+			Render2(.0f);
+			m_proj_mat = temp;
+			m_shManager->UpdateUniMat4fv("projection", m_proj_mat.m);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 		
-		GLubyte* framebuffer = new GLubyte[3 * SCREENSHOT_W * SCREENSHOT_H];
+			GLubyte* framebuffer = new GLubyte[3 * SCREENSHOT_W * SCREENSHOT_H];
 
-		glBindTexture(GL_TEXTURE_2D, m_screenshotTex);
-		glGetTexImage(GL_TEXTURE_2D, 0, GL_BGR, GL_UNSIGNED_BYTE, framebuffer);
-		mkdir("screenshots");
-		sprintf(filename, "screenshots/screenshot%05d.png", lastScreenshot++);
-		if (SavePNG(filename, framebuffer, 8, 3, SCREENSHOT_W, SCREENSHOT_H, false))
-			printf("Wrote screenshot to %s\n", filename);
-		else
-			fprintf(stderr, "Failed to write screenshot\n");
+			glBindTexture(GL_TEXTURE_2D, m_screenshotTex);
+			glGetTexImage(GL_TEXTURE_2D, 0, GL_BGR, GL_UNSIGNED_BYTE, framebuffer);
+			mkdir("screenshots");
+			sprintf(filename, "screenshots/screenshot%05d.png", lastScreenshot);
+			if (SavePNG(filename, framebuffer, 8, 3, SCREENSHOT_W, SCREENSHOT_H, false))
+				printf("Wrote screenshot to %s\n", filename);
+			else
+				fprintf(stderr, "Failed to write screenshot\n");
 
-		glBindTexture(GL_TEXTURE_2D, 0);
-		glViewport(currentViewport[0], currentViewport[1], currentViewport[2], currentViewport[3]);	
-		delete[] framebuffer;		
+			glBindTexture(GL_TEXTURE_2D, 0);
+			glViewport(currentViewport[0], currentViewport[1], currentViewport[2], currentViewport[3]);	
+			delete[] framebuffer;
+		}
 	}
 
 
@@ -1244,6 +1251,106 @@ DefTer::Render(float dt)
 	}
 
 	// Set the active shader to be the current HD shader chosen
+	m_shManager->SetActiveShader(m_shmSimple);
+
+	BEGIN_PROF;
+
+	// Enable wireframe if needed
+	if (WIREFRAMEON)
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	m_pClipmap->render_inner();
+	// Switch to the simple shader and render the rest
+	//m_shManager->SetActiveShader(m_shmSimple);
+	m_pClipmap->render_levels();
+	
+	// Disable wireframe if was enabled
+	if (WIREFRAMEON)
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+	// Do not render skybox or radar in wireframe mode
+	if (!WIREFRAMEON)
+	{
+		m_pSkybox->render(viewproj);
+		if (m_showRadar)
+			m_pCaching->Render();
+	}
+	END_PROF;
+
+	// Get the lastest version of the coarsemap from the GPU for the next frame
+	UpdateCoarsemapStreamer();
+
+	// Swap windows to show the rendered data
+	SDL_GL_SwapWindow(m_pWindow);
+}
+
+void
+DefTer::Render2(float dt)
+{
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+	matrix4 rotate, rotateclamp, cullviewproj, viewproj, translate;
+
+	translate= translate_tr(.0f, -m_cam_translate.y, .0f);
+	rotateclamp  = rotate_tr(max(.0f, m_cam_rotate.x), 1.0f, .0f, .0f) * rotate_tr(m_cam_rotate.y, .0f, 1.0f, .0f);
+	cullviewproj = m_proj_mat * rotateclamp * translate;
+
+	rotate   = rotate_tr(m_cam_rotate.x, 1.0f, .0f, .0f) * rotate_tr(m_cam_rotate.y, .0f, 1.0f, .0f);
+	viewproj = m_proj_mat * rotate;
+
+	// Bind coarse heightmap and its corresponding normal and colour maps
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, m_coarsemap.heightmap);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, m_coarsemap.pdmap);
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, m_colormap_tex);
+	
+
+	// Cull invisible blocks and render clipmap
+	m_pClipmap->cull(cullviewproj, m_clipmap_shift);
+
+	// Block of four tiles where the 0th tile is the top left active tile
+	Tile activeTiles[4];
+	m_pCaching->GetActiveTiles(activeTiles);
+	int firstTile[2] = {activeTiles[0].m_row, activeTiles[0].m_col};
+
+	// Set the view matrix.
+	m_shManager->UpdateUniMat4fv("view", rotate.m);
+	m_shManager->UpdateUniMat4fv("mvp", (m_proj_mat * rotate).m);
+	m_shManager->UpdateUni2i("tileOffset", firstTile[1], firstTile[0]);
+
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_2D, activeTiles[0].m_texdata.heightmap);
+	glActiveTexture(GL_TEXTURE4);
+	glBindTexture(GL_TEXTURE_2D, activeTiles[1].m_texdata.heightmap);
+	glActiveTexture(GL_TEXTURE5);
+	glBindTexture(GL_TEXTURE_2D, activeTiles[2].m_texdata.heightmap);
+	glActiveTexture(GL_TEXTURE6);
+	glBindTexture(GL_TEXTURE_2D, activeTiles[3].m_texdata.heightmap);
+	glActiveTexture(GL_TEXTURE7);
+	glBindTexture(GL_TEXTURE_2D, activeTiles[0].m_texdata.pdmap);
+	glActiveTexture(GL_TEXTURE8);
+	glBindTexture(GL_TEXTURE_2D, activeTiles[1].m_texdata.pdmap);
+	glActiveTexture(GL_TEXTURE9);
+	glBindTexture(GL_TEXTURE_2D, activeTiles[2].m_texdata.pdmap);
+	glActiveTexture(GL_TEXTURE10);
+	glBindTexture(GL_TEXTURE_2D, activeTiles[3].m_texdata.pdmap);
+
+	// If the ground is clicked then show the hologram
+	if (m_clicked)
+	{
+		glActiveTexture(GL_TEXTURE11);
+		glBindTexture(GL_TEXTURE_2D, GetStampMan()->GetCurrentStamp()->GetTexID());
+		// Calculate the transform matrix for the stamp, scale it up and then rotate it as need be
+		matrix2 transform = (m_coarsemap_dim * CLIPMAP_RES / m_stampSIRM.x) * rotate_tr2(-m_stampSIRM.z);
+		// Mirror the stamp transform if need be
+		if (m_stampSIRM.w != 0.0f)
+			transform = reflect_tr2(true) * transform;
+		m_shManager->UpdateUniMat2fv("stampTransform", transform.m);
+	}
+
+	// Set the active shader to be the current HD shader chosen
 	m_shManager->SetActiveShader(m_hdShaderIndex);
 
 	BEGIN_PROF;
@@ -1254,7 +1361,7 @@ DefTer::Render(float dt)
 
 	m_pClipmap->render_inner();
 	// Switch to the simple shader and render the rest
-	m_shManager->SetActiveShader(m_shmSimple);
+	//m_shManager->SetActiveShader(m_shmSimple);
 	m_pClipmap->render_levels();
 	
 	// Disable wireframe if was enabled

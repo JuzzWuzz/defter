@@ -58,7 +58,7 @@
 
 // App Settings
 #define FSAA				(4)
-#define SLEEP_TIME			(0.01f)
+#define SLEEP_TIME			(0.03f)
 #define VSYNC				(false)
 
 
@@ -67,8 +67,8 @@
 #define SCREEN_W			(1024)
 #define SCREEN_H			(768)
 #define ASPRAT				(float(SCREEN_W) / SCREEN_H)
-#define SCREENSHOT_W		(1024)
-#define SCREENSHOT_H		(768)
+#define SCREENSHOT_W		(512)
+#define SCREENSHOT_H		(512)
 
 
 
@@ -81,9 +81,9 @@
 
 
 // Parallax Mapping Controls
-#define PARALLAXBIAS		(-0.00400f)
-#define PARALLAXSCALE		(0.00400f)
-#define PARALLAXITR			(4)
+#define PARALLAXBIAS		(-0.00300f)
+#define PARALLAXSCALE		(0.00300f)
+#define PARALLAXITR			(10)
 
 
 

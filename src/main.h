@@ -26,6 +26,7 @@ public:
 	void		EditModeInput	(float dt, MouseDelta mouseDelta, int ticks);
 	void		Logic			(float dt); //override
 	void		Render			(float dt); //override
+	void		Render2			(float dt);
 
 private:
 	bool		Init			(void);
