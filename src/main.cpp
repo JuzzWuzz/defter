@@ -26,6 +26,14 @@ using namespace std;
 #include "shockwave.h"
 #include "main.h"
 
+//#define RE_PROFILE 1
+#include "re_profiler.h"
+
+#if RE_PROFILE
+	reTimer __g_profilers__[N_PROFILERS];
+	int __g_counters__[N_PROFILERS] = {0};
+	float __g_elapsed__[N_PROFILERS] = {.0f};
+#endif
 
 /******************************************************************************
  * Main 
@@ -56,6 +64,9 @@ int main(int argc, char* argv[])
 		sleepTime *= 10;
 	}
 
+
+	GLPROF2_RESULT(0,"render");
+	GLPROF2_RESULT(1,"deform");
 #ifdef _WIN32
 	Sleep(sleepTime);
 #endif
@@ -195,6 +206,7 @@ DefTer::InitGL()
 	// Init the cameras position such that it is in the middle of a tile
 	float halfTile  = HIGH_DIM * HIGH_RES * 0.5f;
 	m_cam_translate.set(-halfTile, 0.0f, -halfTile);
+	m_cam_rotate.set(-PI/8.0f, 0.0f, 0.0f);
 	m_lastPosition  = m_cam_translate;
 
 	// Set the initial stamp mode and clicked state
@@ -1180,6 +1192,7 @@ DefTer::Logic(float dt)
 void
 DefTer::Render(float dt)
 {
+	GLPROF2_BEGIN(0);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
 	matrix4 rotate, rotateclamp, cullviewproj, viewproj, translate;
@@ -1275,6 +1288,7 @@ DefTer::Render(float dt)
 
 	// Swap windows to show the rendered data
 	SDL_GL_SwapWindow(m_pWindow);
+	GLPROF2_END(0);
 }
 
 //--------------------------------------------------------

@@ -3,14 +3,18 @@
 #ifndef _RE_PROFILER_H_
 #define _RE_PROFILER_H_
 
+#define RE_PROFILE 0
+
 #if RE_PROFILE
 #	include "re_timer.h"
 
 // Create an array of timers
 #	define N_PROFILERS			(20)
-	reTimer __g_profilers__[N_PROFILERS];
-	int __g_counters__[N_PROFILERS] = {0};
-	float __g_elapsed__[N_PROFILERS] = {.0f};
+
+	extern reTimer __g_profilers__[N_PROFILERS];
+	extern int __g_counters__[N_PROFILERS];
+	extern float __g_elapsed__[N_PROFILERS];
+
 #	define __RE_P_				__g_profilers__
 #	define __RE_C_				__g_counters__
 #	define __RE_E_				__g_elapsed__

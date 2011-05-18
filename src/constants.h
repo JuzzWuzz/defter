@@ -57,18 +57,18 @@
 
 
 // App Settings
-#define FSAA				(4)
-#define SLEEP_TIME			(0.01f)
+#define FSAA				(0)
+#define SLEEP_TIME			(0.0f)
 #define VSYNC				(false)
 
 
 
 // Screen settings
-#define SCREEN_W			(1024)
-#define SCREEN_H			(768)
+#define SCREEN_W			(1600)
+#define SCREEN_H			(900)
 #define ASPRAT				(float(SCREEN_W) / SCREEN_H)
-#define SCREENSHOT_W		(1024)
-#define SCREENSHOT_H		(768)
+#define SCREENSHOT_W		(1600)
+#define SCREENSHOT_H		(900)
 
 
 
