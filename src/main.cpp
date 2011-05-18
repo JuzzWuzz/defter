@@ -29,9 +29,11 @@ using namespace std;
 //#define RE_PROFILE 1
 #include "re_profiler.h"
 
+#if RE_PROFILE
 	reTimer __g_profilers__[N_PROFILERS];
 	int __g_counters__[N_PROFILERS] = {0};
 	float __g_elapsed__[N_PROFILERS] = {.0f};
+#endif
 
 /******************************************************************************
  * Main 
@@ -204,6 +206,7 @@ DefTer::InitGL()
 	// Init the cameras position such that it is in the middle of a tile
 	float halfTile  = HIGH_DIM * HIGH_RES * 0.5f;
 	m_cam_translate.set(-halfTile, 0.0f, -halfTile);
+	m_cam_rotate.set(-PI/8.0f, 0.0f, 0.0f);
 	m_lastPosition  = m_cam_translate;
 
 	// Set the initial stamp mode and clicked state

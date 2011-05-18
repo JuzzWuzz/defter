@@ -3,7 +3,7 @@
 #ifndef _RE_PROFILER_H_
 #define _RE_PROFILER_H_
 
-#define RE_PROFILE 1
+#define RE_PROFILE 0
 #if RE_PROFILE
 #	include "re_timer.h"
 
