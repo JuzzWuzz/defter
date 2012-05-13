@@ -123,6 +123,11 @@
   </div> <!-- end content -->
   <footer>
     <!-- Footer -->
+    <table width="100%">
+      <tr>
+        <td>&copy; Andrew Flower & Justin Crause 2010</td>
+      </tr>
+    </table>
   </footer>
 
 </div> <!-- end container -->

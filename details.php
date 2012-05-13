@@ -217,6 +217,11 @@ Experiments were run to measure the speed and accuracy of the system. At a frame
   </div> <!-- end content -->
   <footer>
     <!-- Footer -->
+    <table width="100%">
+      <tr>
+        <td>&copy; Andrew Flower & Justin Crause 2010</td>
+      </tr>
+    </table>
   </footer>
 
 </div> <!-- end container -->
